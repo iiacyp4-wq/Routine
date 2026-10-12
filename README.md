@@ -8,4 +8,4 @@
 - Scriptable 잠금화면 위젯 + 정한 시각 알림 (`scriptable/Routine.js`)
 - 데이터는 폰의 이 앱 안(localStorage)에만 저장. 설정 → 백업으로 파일 저장
 
-버전 규칙: 고칠 때마다 `app.js`의 `APP_VERSION`, `scriptable/Routine.js`의 `// 버전:` 줄, `sw.js`의 `CACHE`를 같이 올린다.
+버전 규칙: 고칠 때마다 `app.js`의 `APP_VERSION`과 `sw.js`의 `CACHE`를 올린다. `scriptable/Routine.js`의 `// 버전:` 줄은 그 스크립트를 고쳤을 때만 올린다(올리면 폰에서 다시 복사해야 함).

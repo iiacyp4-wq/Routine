@@ -46,14 +46,16 @@ h2 { font-size: 16px; margin: 0 0 12px; }
 .alert { background: var(--red-bg); color: var(--red); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-weight: 600; font-size: 14px; }
 
 /* 루틴 카드 */
-.rt { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--card); border: 0; border-radius: 18px; padding: 14px 16px; margin-bottom: 10px; border-left: 5px solid transparent; }
+.rt { cursor: pointer; display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--card); border: 0; border-radius: 18px; padding: 14px 16px; margin-bottom: 10px; border-left: 5px solid transparent; }
 .rt:active { transform: scale(.985); }
+.rt .check:active { transform: scale(.85); }
+.rt.done .check:active { opacity: .7; }
 .rt .emoji { font-size: 30px; width: 40px; text-align: center; }
 .rt .body { flex: 1; min-width: 0; }
 .rt .name { font-size: 17px; font-weight: 700; }
 .rt .status { font-size: 14px; margin-top: 2px; }
 .rt .sub { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rt .check { width: 34px; height: 34px; border-radius: 50%; border: 2.5px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; flex: none; }
+.rt .check { width: 40px; height: 40px; padding: 0; background: transparent; border-radius: 50%; border: 2.5px solid var(--line); display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; flex: none; }
 .rt.red { border-left-color: var(--red); }
 .rt.red .status { color: var(--red); font-weight: 700; }
 .rt.warn { border-left-color: var(--warn); }
@@ -119,3 +121,5 @@ select, input[type=text], input[type=number], input[type=date] { background: var
 .tabbar button.active { color: var(--text); font-weight: 700; }
 
 .toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 30; max-width: 90vw; }
+.sheet h3 { font-size: 15px; margin: 14px 0 6px; }
+.sheet h3.section { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 18px; }

@@ -1,6 +1,6 @@
 // Routine - 루틴이 조용히 사라지지 않게 계속 보여 주는 앱
 // 데이터는 이 폰의 localStorage에만 저장
-const APP_VERSION = 'v1.0';
+const APP_VERSION = 'v1.1';
 const STORE = 'routine-state';
 
 const $ = (s) => document.querySelector(s);
@@ -116,15 +116,15 @@ function renderToday() {
   if (reds.length) $('#fading').textContent = `🔴 사라지는 중: ${reds.map((x) => x.r.name).join(', ')} — 오늘 하나만 해 볼까요?`;
 
   $('#routine-list').innerHTML = list.map(({ r, s }) => `
-    <button class="rt ${s.lvl}" data-rid="${r.id}">
+    <div class="rt ${s.lvl}" data-rid="${r.id}">
       <span class="emoji">${esc(r.emoji || '•')}</span>
       <span class="body">
         <div class="name">${esc(r.name)}</div>
         <div class="status">${esc(s.text)}</div>
         ${subLine(r, today) ? `<div class="sub">${esc(subLine(r, today))}</div>` : ''}
       </span>
-      <span class="check">${s.lvl === 'done' ? '✓' : ''}</span>
-    </button>`).join('') || '<p class="muted center">설정에서 루틴을 추가해 주세요.</p>';
+      <button class="check" data-check aria-label="${s.lvl === 'done' ? '체크 해제' : '체크'}">${s.lvl === 'done' ? '✓' : ''}</button>
+    </div>`).join('') || '<p class="muted center">설정에서 루틴을 추가해 주세요.</p>';
   renderWidgetButton();
 }
 function subLine(r, today) {
@@ -138,22 +138,22 @@ function subLine(r, today) {
   return recent.length ? `최근: ${recent.map(md).join(', ')}` : '';
 }
 
+// 동그라미 = 바로 체크/해제, 카드의 나머지 부분 = 자세히 보기·고치기
 $('#routine-list').onclick = (ev) => {
-  const b = ev.target.closest('[data-rid]');
-  if (!b) return;
-  const r = state.routines.find((x) => x.id === b.dataset.rid);
-  tapRoutine(r, todayKey());
+  const card = ev.target.closest('[data-rid]');
+  if (!card) return;
+  const r = state.routines.find((x) => x.id === card.dataset.rid);
+  if (ev.target.closest('[data-check]')) toggle(r, todayKey());
+  else openDetailSheet(r, todayKey());
 };
 
-function tapRoutine(r, d) {
-  if (r.menu) return openMenuSheet(r, d);
-  if (r.kind === 'interval' && d === todayKey()) return openIntervalSheet(r);
+function toggle(r, d) {
   if (entry(r, d)) {
-    if (!confirm(`${md(d)} ${r.name} 기록을 지울까요?`)) return;
     setEntry(r, d, null);
+    toast(`${r.emoji} ${r.name} 체크를 풀었어요`);
   } else {
-    setEntry(r, d, {});
-    toast(`${r.emoji} ${r.name} 기록했어요`);
+    setEntry(r, d, r.menu ? { items: [] } : {});
+    toast(`${r.emoji} ${r.name} 체크했어요`);
   }
   changed();
 }
@@ -163,6 +163,7 @@ function changed() {
   save();
   renderToday();
   if ($('#view-history').classList.contains('active')) renderHistory();
+  if ($('#view-settings').classList.contains('active')) renderSettings();
   autoSync();
 }
 
@@ -174,53 +175,116 @@ function openSheet(html) {
 function closeSheet() { $('#sheet').hidden = true; $('#sheet-bg').hidden = true; }
 $('#sheet-bg').onclick = closeSheet;
 
-// 메뉴 고르기 (아침 등)
-function openMenuSheet(r, d) {
-  const had = entry(r, d);
-  const sel = new Set(had ? had.items || [] : []);
-  const draw = () => {
-    const cands = [...new Set([...menuCandidates(r), ...sel])];
-    const prev = lastMenuBefore(r, d);
-    const recent = datesOf(r).filter((x) => x <= d).slice(-7).reverse();
-    openSheet(`
-      <h2>${esc(r.emoji)} ${esc(r.name)} · ${md(d)}</h2>
-      <p class="muted small">먹은 걸 눌러서 고르세요.</p>
-      <div class="chips">${cands.map((c) => `<button class="chip ${sel.has(c) ? 'on' : ''}" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}</div>
-      <div class="add-line"><input type="text" id="new-item" placeholder="새 메뉴 (예: 요거트)"><button class="btn" id="add-item">추가</button></div>
-      ${prev ? `<button class="btn wide" id="same-prev">↺ 지난번과 같음 (${md(prev.d)}: ${esc(prev.items.join(' · '))})</button>` : ''}
-      <button class="btn primary wide" id="save-menu">${had ? '고친 대로 저장' : '기록하기'}</button>
-      ${had ? '<button class="btn danger wide" id="del-menu">이날 기록 지우기</button>' : ''}
-      ${recent.length ? `<div class="recent"><h2>최근 메뉴</h2>${recent.map((x) => `<div class="menu-row"><span class="d">${md(x)} (${DOW[parse(x).getDay()]})</span><span>${esc((entry(r, x).items || []).join(' · ') || '기록만')}</span></div>`).join('')}</div>` : ''}
-    `);
-    $$('[data-chip]').forEach((b) => (b.onclick = () => { const c = b.dataset.chip; sel.has(c) ? sel.delete(c) : sel.add(c); draw(); }));
-    const add = () => { const v = $('#new-item').value.trim(); if (v) { sel.add(v); draw(); } };
-    $('#add-item').onclick = add;
-    $('#new-item').onkeydown = (e) => { if (e.key === 'Enter') add(); };
-    if (prev) $('#same-prev').onclick = () => { sel.clear(); prev.items.forEach((x) => sel.add(x)); draw(); };
-    $('#save-menu').onclick = () => { setEntry(r, d, { items: [...sel] }); closeSheet(); toast(`${r.emoji} ${r.name} 기록했어요`); changed(); };
-    if (had) $('#del-menu').onclick = () => { setEntry(r, d, null); closeSheet(); changed(); };
+// 루틴 설정 칸 (자세히 보기와 루틴 추가에서 같이 씀)
+function routineFieldsHtml(v) {
+  return `
+    <label class="field">이모지<input type="text" id="e-emoji" value="${esc(v.emoji || '')}" maxlength="4"></label>
+    <label class="field">이름<input type="text" id="e-name" value="${esc(v.name)}" placeholder="예: 영양제"></label>
+    <label class="field">얼마나 자주
+      <select id="e-kind">
+        <option value="daily" ${v.kind === 'daily' ? 'selected' : ''}>매일</option>
+        <option value="weekly" ${v.kind === 'weekly' ? 'selected' : ''}>일주일에 몇 번</option>
+        <option value="interval" ${v.kind === 'interval' ? 'selected' : ''}>며칠마다 (병원 등)</option>
+      </select></label>
+    <label class="field" id="f-target">일주일에 몇 번<input type="number" id="e-target" min="1" max="7" value="${v.target || 3}"></label>
+    <label class="field" id="f-every">며칠마다<input type="number" id="e-every" min="1" max="730" value="${v.every || 30}"></label>
+    <label class="switch-row" id="f-menu"><span>무엇을 했는지(메뉴) 고르기</span><input type="checkbox" switch id="e-menu" ${v.menu ? 'checked' : ''}></label>
+    <label class="field" id="f-items">기본 메뉴 (쉼표로 구분)<input type="text" id="e-items" value="${esc((v.items || []).join(', '))}"></label>`;
+}
+function bindRoutineFields() {
+  const sync = () => {
+    const k = $('#e-kind').value;
+    $('#f-target').hidden = k !== 'weekly';
+    $('#f-every').hidden = k !== 'interval';
+    $('#f-menu').hidden = k === 'interval';
+    $('#f-items').hidden = k === 'interval' || !$('#e-menu').checked;
   };
-  draw();
+  $('#e-kind').onchange = sync; $('#e-menu').onchange = sync; sync();
+}
+function readRoutineFields(r) {
+  const name = $('#e-name').value.trim();
+  if (!name) { toast('이름을 적어 주세요'); return null; }
+  const kind = $('#e-kind').value;
+  return {
+    ...(r || { id: 'r' + Date.now().toString(36), due: '' }),
+    emoji: $('#e-emoji').value.trim() || '•', name, kind,
+    target: Math.min(7, Math.max(1, +$('#e-target').value || 1)),
+    every: Math.max(1, +$('#e-every').value || 30),
+    menu: kind !== 'interval' && $('#e-menu').checked,
+    items: $('#e-items').value.split(',').map((x) => x.trim()).filter(Boolean),
+  };
+}
+function deleteRoutine(r) {
+  if (!confirm(`${r.name} 루틴과 기록을 모두 지울까요?`)) return;
+  state.routines = state.routines.filter((x) => x !== r);
+  delete state.log[r.id];
+  closeSheet(); changed();
 }
 
-// 병원 등: 다녀옴 기록 + 다음 예약일
-function openIntervalSheet(r) {
+// 자세히 보기: 그날 기록(메뉴·예약일) + 루틴 설정을 한 화면에서 고치고 한 번에 저장
+function openDetailSheet(r, d) {
   const today = todayKey();
-  const had = entry(r, today);
+  const had = entry(r, d);
+  const sel = new Set(had ? had.items || [] : []);
   const s = statusOf(r, today);
+  const prev = r.menu ? lastMenuBefore(r, d) : null;
+  const recent = datesOf(r).filter((x) => x <= today).slice(-7).reverse();
+  const chip = (c) => `<button class="chip ${sel.has(c) ? 'on' : ''}" data-chip="${esc(c)}">${esc(c)}</button>`;
   openSheet(`
     <h2>${esc(r.emoji)} ${esc(r.name)}</h2>
     <p class="muted small">${esc(s.text)} · ${KIND_DESC(r)}</p>
-    <label class="field">다음 예약일 (모르면 비워 두면 ${r.every || 90}일 뒤로 잡아요)
-      <input type="date" id="due" value="${r.due && r.due > today ? r.due : ''}"></label>
-    ${had ? '<button class="btn danger wide" id="undo">오늘 다녀온 기록 지우기</button>'
-          : '<button class="btn primary wide" id="visit">오늘 다녀왔어요</button>'}
-    <button class="btn wide" id="due-only">예약일만 저장</button>
+    ${r.menu ? `
+      <h3>${d === today ? '오늘' : md(d)} 먹은 것</h3>
+      <div class="chips" id="chips">${[...new Set([...menuCandidates(r), ...sel])].map(chip).join('')}</div>
+      <div class="add-line"><input type="text" id="new-item" placeholder="새 메뉴 (예: 요거트)"><button class="btn" id="add-item">추가</button></div>
+      ${prev ? `<button class="btn wide" id="same-prev">↺ 지난번과 같음 (${md(prev.d)}: ${esc(prev.items.join(' · '))})</button>` : ''}` : ''}
+    ${r.kind === 'interval' ? `
+      <label class="field">다음 예약일 (비워 두면 마지막 방문 ${r.every || 90}일 뒤)
+        <input type="date" id="due" value="${r.due && r.due > today ? r.due : ''}"></label>` : ''}
+    ${recent.length ? `<div class="recent"><h3>최근 기록</h3>${recent.map((x) => `<div class="menu-row"><span class="d">${md(x)} (${DOW[parse(x).getDay()]})</span><span>${r.menu ? esc((entry(r, x).items || []).join(' · ') || '체크만') : '✓'}</span></div>`).join('')}</div>` : ''}
+    <h3 class="section">루틴 설정</h3>
+    ${routineFieldsHtml(r)}
+    <button class="btn primary wide" id="d-save">저장</button>
+    <button class="btn danger wide" id="d-del">이 루틴 지우기</button>
   `);
-  const saveDue = () => { r.due = $('#due').value || ''; };
-  if (had) $('#undo').onclick = () => { setEntry(r, today, null); saveDue(); closeSheet(); changed(); };
-  else $('#visit').onclick = () => { setEntry(r, today, {}); saveDue(); closeSheet(); toast(`${r.emoji} ${r.name} 기록했어요`); changed(); };
-  $('#due-only').onclick = () => { saveDue(); closeSheet(); toast('예약일을 저장했어요'); changed(); };
+  bindRoutineFields();
+  if (r.menu) {
+    // 칩은 그 자리에서만 바꿈 (시트를 다시 그리면 적던 설정 칸이 지워지니까)
+    $('#chips').onclick = (ev) => {
+      const b = ev.target.closest('[data-chip]');
+      if (!b) return;
+      const c = b.dataset.chip;
+      sel.has(c) ? sel.delete(c) : sel.add(c);
+      b.classList.toggle('on', sel.has(c));
+    };
+    const addChip = (v) => {
+      sel.add(v);
+      const old = $$('#chips [data-chip]').find((b) => b.dataset.chip === v);
+      if (old) old.classList.add('on'); else $('#chips').insertAdjacentHTML('beforeend', chip(v));
+    };
+    const add = () => {
+      const v = $('#new-item').value.trim();
+      if (v) addChip(v);
+      $('#new-item').value = '';
+    };
+    $('#add-item').onclick = add;
+    $('#new-item').onkeydown = (e) => { if (e.key === 'Enter') add(); };
+    if (prev) $('#same-prev').onclick = () => {
+      sel.clear();
+      $$('#chips [data-chip]').forEach((b) => b.classList.remove('on'));
+      prev.items.forEach(addChip);
+    };
+  }
+  $('#d-save').onclick = () => {
+    const nr = readRoutineFields(r);
+    if (!nr) return;
+    // 메뉴를 골랐으면 그날 먹은 것이니 체크도 같이 됨
+    if (r.menu && (had || sel.size)) setEntry(r, d, { items: [...sel] });
+    if (r.kind === 'interval' && $('#due')) nr.due = $('#due').value || '';
+    state.routines[state.routines.indexOf(r)] = nr;
+    closeSheet(); toast('저장했어요'); changed();
+  };
+  $('#d-del').onclick = () => deleteRoutine(r);
 }
 
 // ---------- 기록 화면 ----------
@@ -250,10 +314,8 @@ $('#history-grids').onclick = (ev) => {
   const b = ev.target.closest('[data-d]');
   if (!b) return;
   const r = state.routines.find((x) => x.id === b.dataset.r);
-  if (r.menu) return openMenuSheet(r, b.dataset.d);
-  // 기록 화면에서는 병원도 바로 넣고 빼기 (지난 날 채우기용)
-  setEntry(r, b.dataset.d, entry(r, b.dataset.d) ? null : {});
-  changed();
+  // 기록 화면도 누르면 바로 체크/해제 (지난 날 채우기용)
+  toggle(r, b.dataset.d);
 };
 
 // ---------- 설정 ----------
@@ -277,54 +339,20 @@ $('#routine-edit-list').onclick = (ev) => {
 };
 $('#add-routine').onclick = () => openEditSheet(null);
 
+// 설정의 "고치기"는 자세히 보기로, "+ 루틴 추가"는 빈 설정 칸으로
 function openEditSheet(r) {
-  const isNew = !r;
-  const v = r || { emoji: '✨', name: '', kind: 'weekly', target: 3, every: 30, menu: false, items: [] };
+  if (r) return openDetailSheet(r, todayKey());
   openSheet(`
-    <h2>${isNew ? '루틴 추가' : '루틴 고치기'}</h2>
-    <label class="field">이모지<input type="text" id="e-emoji" value="${esc(v.emoji || '')}" maxlength="4"></label>
-    <label class="field">이름<input type="text" id="e-name" value="${esc(v.name)}" placeholder="예: 영양제"></label>
-    <label class="field">얼마나 자주
-      <select id="e-kind">
-        <option value="daily" ${v.kind === 'daily' ? 'selected' : ''}>매일</option>
-        <option value="weekly" ${v.kind === 'weekly' ? 'selected' : ''}>일주일에 몇 번</option>
-        <option value="interval" ${v.kind === 'interval' ? 'selected' : ''}>며칠마다 (병원 등)</option>
-      </select></label>
-    <label class="field" id="f-target">일주일에 몇 번<input type="number" id="e-target" min="1" max="7" value="${v.target || 3}"></label>
-    <label class="field" id="f-every">며칠마다<input type="number" id="e-every" min="1" max="730" value="${v.every || 30}"></label>
-    <label class="switch-row" id="f-menu"><span>무엇을 했는지(메뉴) 고르기</span><input type="checkbox" switch id="e-menu" ${v.menu ? 'checked' : ''}></label>
-    <label class="field" id="f-items">기본 메뉴 (쉼표로 구분)<input type="text" id="e-items" value="${esc((v.items || []).join(', '))}"></label>
-    <button class="btn primary wide" id="e-save">저장</button>
-    ${isNew ? '' : '<button class="btn danger wide" id="e-del">이 루틴 지우기 (기록도 같이 지워져요)</button>'}
+    <h2>루틴 추가</h2>
+    ${routineFieldsHtml({ emoji: '✨', name: '', kind: 'weekly', target: 3, every: 30, menu: false, items: [] })}
+    <button class="btn primary wide" id="e-save">추가</button>
   `);
-  const sync = () => {
-    const k = $('#e-kind').value;
-    $('#f-target').hidden = k !== 'weekly';
-    $('#f-every').hidden = k !== 'interval';
-    $('#f-menu').hidden = k === 'interval';
-    $('#f-items').hidden = k === 'interval' || !$('#e-menu').checked;
-  };
-  $('#e-kind').onchange = sync; $('#e-menu').onchange = sync; sync();
+  bindRoutineFields();
   $('#e-save').onclick = () => {
-    const name = $('#e-name').value.trim();
-    if (!name) return toast('이름을 적어 주세요');
-    const kind = $('#e-kind').value;
-    const nr = {
-      ...(r || { id: 'r' + Date.now().toString(36), due: '' }),
-      emoji: $('#e-emoji').value.trim() || '•', name, kind,
-      target: Math.min(7, Math.max(1, +$('#e-target').value || 1)),
-      every: Math.max(1, +$('#e-every').value || 30),
-      menu: kind !== 'interval' && $('#e-menu').checked,
-      items: $('#e-items').value.split(',').map((x) => x.trim()).filter(Boolean),
-    };
-    if (isNew) state.routines.push(nr); else state.routines[state.routines.indexOf(r)] = nr;
-    closeSheet(); changed(); renderSettings();
-  };
-  if (!isNew) $('#e-del').onclick = () => {
-    if (!confirm(`${r.name} 루틴과 기록을 모두 지울까요?`)) return;
-    state.routines = state.routines.filter((x) => x !== r);
-    delete state.log[r.id];
-    closeSheet(); changed(); renderSettings();
+    const nr = readRoutineFields(null);
+    if (!nr) return;
+    state.routines.push(nr);
+    closeSheet(); changed();
   };
 }
 
