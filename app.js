@@ -1,6 +1,6 @@
 // Routine - 루틴이 조용히 사라지지 않게 계속 보여 주는 앱
 // 데이터는 이 폰의 localStorage에만 저장
-const APP_VERSION = 'v1.1';
+const APP_VERSION = 'v1.2';
 const STORE = 'routine-state';
 
 const $ = (s) => document.querySelector(s);
@@ -109,7 +109,7 @@ function renderToday() {
   $('#today-title').textContent = `${t.getMonth() + 1}월 ${t.getDate()}일 (${DOW[t.getDay()]})`;
 
   const list = state.routines.map((r) => ({ r, s: statusOf(r, today) }));
-  list.sort((a, b) => b.s.score - a.s.score);
+  // 순서는 설정에서 정한 그대로 (체크해도 자리가 바뀌지 않게)
 
   const reds = list.filter((x) => x.s.lvl === 'red');
   $('#fading').hidden = !reds.length;
@@ -324,6 +324,8 @@ function renderSettings() {
     <div class="edit-item">
       <span class="emoji">${esc(r.emoji || '•')}</span>
       <span class="body"><b>${esc(r.name)}</b><div class="desc">${KIND_DESC(r)}${r.menu ? ' · 메뉴 기록' : ''}</div></span>
+      <button class="btn mini" data-move="-1" data-id="${r.id}" aria-label="위로">▲</button>
+      <button class="btn mini" data-move="1" data-id="${r.id}" aria-label="아래로">▼</button>
       <button class="btn mini" data-edit="${r.id}">고치기</button>
     </div>`).join('');
   $('#widget-toggle').checked = !!state.widget;
@@ -334,6 +336,15 @@ function renderSettings() {
   renderVersionInfo();
 }
 $('#routine-edit-list').onclick = (ev) => {
+  const mv = ev.target.closest('[data-move]');
+  if (mv) {
+    // 순서 바꾸기: 오늘 화면이 이 순서를 따름 (잠금화면 위젯은 칸이 3줄뿐이라 급한 순서 유지)
+    const i = state.routines.findIndex((r) => r.id === mv.dataset.id);
+    const j = i + Number(mv.dataset.move);
+    if (j < 0 || j >= state.routines.length) return;
+    [state.routines[i], state.routines[j]] = [state.routines[j], state.routines[i]];
+    return changed();
+  }
   const b = ev.target.closest('[data-edit]');
   if (b) openEditSheet(state.routines.find((r) => r.id === b.dataset.edit));
 };

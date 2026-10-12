@@ -1,5 +1,5 @@
 // 오프라인에서도 열리도록 파일을 저장해 두는 서비스워커
-const CACHE = 'routine-v2';
+const CACHE = 'routine-v3';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'scriptable/Routine.js'];
 
 self.addEventListener('install', (e) => {
