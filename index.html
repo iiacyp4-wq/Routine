@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Routine">
+  <title>Routine</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 오늘 -->
+  <main id="view-today" class="view active">
+    <h1 class="title" id="today-title">오늘</h1>
+    <div class="alert" id="fading" hidden></div>
+    <a class="btn wide sync-btn" id="widget-sync" hidden></a>
+    <section id="routine-list"></section>
+    <p class="muted small center">오래 안 한 루틴이 위로 올라와요. 카드를 누르면 오늘 한 걸로 기록돼요.</p>
+  </main>
+
+  <!-- 기록 -->
+  <main id="view-history" class="view">
+    <h1 class="title">기록</h1>
+    <p class="muted small">칸을 누르면 그날 기록을 넣거나 지울 수 있어요. (깜빡한 날 채우기)</p>
+    <section id="history-grids"></section>
+    <section id="menu-log"></section>
+  </main>
+
+  <!-- 설정 -->
+  <main id="view-settings" class="view">
+    <h1 class="title">설정</h1>
+
+    <section class="card">
+      <h2>루틴</h2>
+      <div id="routine-edit-list"></div>
+      <button class="btn wide" id="add-routine">+ 루틴 추가</button>
+    </section>
+
+    <section class="card">
+      <h2>잠금화면 위젯 (Scriptable)</h2>
+      <label class="switch-row"><span>잠금화면 위젯 사용</span><input type="checkbox" switch id="widget-toggle"></label>
+      <label class="switch-row"><span>체크하면 바로 위젯에 반영</span><input type="checkbox" switch id="autosync-toggle"></label>
+      <div class="row-field">
+        <span>알림 시각</span>
+        <span><select id="h1"></select> · <select id="h2"></select></span>
+      </div>
+      <p class="muted small">알림은 위젯이 새로 고쳐질 때 보내서 몇 분 늦을 수 있어요. 그 시각에 아직 안 한 루틴만 알려 줘요.</p>
+      <ol class="small steps">
+        <li>App Store에서 <b>Scriptable</b> 설치 (Macho 때 깔았으면 생략)</li>
+        <li><button class="btn mini" data-copy="Routine">스크립트 복사</button></li>
+        <li>Scriptable에서 <b>+</b> → 붙여넣기 → 이름을 <b>Routine</b>으로 저장</li>
+        <li>잠금화면 길게 누르기 → 사용자화 → 위젯 추가 → Scriptable → 위젯을 누르고 Script를 <b>Routine</b>으로</li>
+        <li>여기서 루틴을 한 번 체크하면 Scriptable이 열리면서 반영돼요. 왼쪽 위 ◀로 돌아오면 끝</li>
+      </ol>
+    </section>
+
+    <section class="card">
+      <h2>백업</h2>
+      <p class="muted small">기록은 이 폰의 이 앱 안에만 있어요. 가끔 파일로 저장해 두세요.</p>
+      <div class="btn-row">
+        <button class="btn" id="export">파일로 저장</button>
+        <label class="btn">불러오기<input type="file" id="import" accept="application/json" hidden></label>
+      </div>
+    </section>
+
+    <p class="muted small center" id="version-info"></p>
+  </main>
+
+  <!-- 아래 시트 -->
+  <div class="sheet-bg" id="sheet-bg" hidden></div>
+  <div class="sheet" id="sheet" hidden></div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <nav class="tabbar">
+    <button data-view="today" class="active"><span>☀️</span>오늘</button>
+    <button data-view="history"><span>📅</span>기록</button>
+    <button data-view="settings"><span>⚙️</span>설정</button>
+  </nav>
+
+  <script src="app.js"></script>
+</body>
+</html>
