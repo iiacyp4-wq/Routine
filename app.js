@@ -1,6 +1,6 @@
 // Routine - 루틴이 조용히 사라지지 않게 계속 보여 주는 앱
 // 데이터는 이 폰의 localStorage에만 저장
-const APP_VERSION = 'v1.2';
+const APP_VERSION = 'v1.3';
 const STORE = 'routine-state';
 
 const $ = (s) => document.querySelector(s);
@@ -36,6 +36,7 @@ try { state = JSON.parse(localStorage.getItem(STORE)); } catch { state = null; }
 if (!state || !Array.isArray(state.routines)) state = defaultState();
 const save = () => localStorage.setItem(STORE, JSON.stringify(state));
 
+const shown = () => state.routines.filter((r) => !r.hidden); // 숨긴 루틴은 오늘 화면·위젯에 안 나옴
 const datesOf = (r) => Object.keys(state.log[r.id] || {}).sort();
 const entry = (r, d) => (state.log[r.id] || {})[d];
 function setEntry(r, d, val) {
@@ -108,7 +109,7 @@ function renderToday() {
   const t = parse(today);
   $('#today-title').textContent = `${t.getMonth() + 1}월 ${t.getDate()}일 (${DOW[t.getDay()]})`;
 
-  const list = state.routines.map((r) => ({ r, s: statusOf(r, today) }));
+  const list = shown().map((r) => ({ r, s: statusOf(r, today) }));
   // 순서는 설정에서 정한 그대로 (체크해도 자리가 바뀌지 않게)
 
   const reds = list.filter((x) => x.s.lvl === 'red');
@@ -124,7 +125,7 @@ function renderToday() {
         ${subLine(r, today) ? `<div class="sub">${esc(subLine(r, today))}</div>` : ''}
       </span>
       <button class="check" data-check aria-label="${s.lvl === 'done' ? '체크 해제' : '체크'}">${s.lvl === 'done' ? '✓' : ''}</button>
-    </div>`).join('') || '<p class="muted center">설정에서 루틴을 추가해 주세요.</p>';
+    </div>`).join('') || `<p class="muted center">${state.routines.length ? '보이는 루틴이 없어요. 설정에서 👁를 눌러 켜 주세요.' : '설정에서 루틴을 추가해 주세요.'}</p>`;
   renderWidgetButton();
 }
 function subLine(r, today) {
@@ -296,7 +297,7 @@ function renderHistory() {
   $('#history-grids').innerHTML = state.routines.map((r) => {
     const cnt30 = datesOf(r).filter((d) => d > addDays(today, -30) && d <= today).length;
     return `<section class="card grid-card">
-      <h2>${esc(r.emoji)} ${esc(r.name)} <small>최근 30일 ${cnt30}번 · ${KIND_DESC(r)}</small></h2>
+      <h2>${esc(r.emoji)} ${esc(r.name)}${r.hidden ? ' <small>(숨김)</small>' : ''} <small>최근 30일 ${cnt30}번 · ${KIND_DESC(r)}</small></h2>
       <div class="days-head">${['월', '화', '수', '목', '금', '토', '일'].map((x) => `<span>${x}</span>`).join('')}</div>
       <div class="days">${days.map((d) => `<button class="day ${entry(r, d) ? 'on' : ''} ${d === today ? 'today' : ''} ${d > today ? 'future' : ''}"
         data-r="${r.id}" data-d="${d}" ${d > today ? 'disabled' : ''}>${+d.slice(8)}</button>`).join('')}</div>
@@ -321,9 +322,10 @@ $('#history-grids').onclick = (ev) => {
 // ---------- 설정 ----------
 function renderSettings() {
   $('#routine-edit-list').innerHTML = state.routines.map((r) => `
-    <div class="edit-item">
+    <div class="edit-item ${r.hidden ? 'off' : ''}">
       <span class="emoji">${esc(r.emoji || '•')}</span>
       <span class="body"><b>${esc(r.name)}</b><div class="desc">${KIND_DESC(r)}${r.menu ? ' · 메뉴 기록' : ''}</div></span>
+      <button class="btn mini vis" data-vis="${r.id}" aria-label="${r.hidden ? '보이기' : '숨기기'}">${r.hidden ? '숨김' : '👁'}</button>
       <button class="btn mini" data-move="-1" data-id="${r.id}" aria-label="위로">▲</button>
       <button class="btn mini" data-move="1" data-id="${r.id}" aria-label="아래로">▼</button>
       <button class="btn mini" data-edit="${r.id}">고치기</button>
@@ -336,6 +338,14 @@ function renderSettings() {
   renderVersionInfo();
 }
 $('#routine-edit-list').onclick = (ev) => {
+  const vis = ev.target.closest('[data-vis]');
+  if (vis) {
+    // 숨겨도 기록은 그대로 남음. 오늘 화면·위젯·알림에서만 빠지고 기록 탭에는 보임
+    const r = state.routines.find((x) => x.id === vis.dataset.vis);
+    r.hidden = !r.hidden;
+    toast(r.hidden ? `${r.emoji} ${r.name} 숨겼어요 (기록은 남아 있어요)` : `${r.emoji} ${r.name} 다시 보여요`);
+    return changed();
+  }
   const mv = ev.target.closest('[data-move]');
   if (mv) {
     // 순서 바꾸기: 오늘 화면이 이 순서를 따름 (잠금화면 위젯은 칸이 3줄뿐이라 급한 순서 유지)
@@ -398,7 +408,7 @@ $('#import').onchange = async (e) => {
 // ---------- 잠금화면 위젯 (Scriptable) ----------
 // 루틴마다 최근 기록 8개를 보내면 위젯이 날짜가 바뀌어도 알아서 다시 계산함
 function widgetQuery() {
-  const rs = state.routines.map((r) => {
+  const rs = shown().map((r) => {
     const ds = datesOf(r);
     return { e: r.emoji, n: r.name, k: r.kind[0], t: r.target || 1, v: r.every || 90, u: r.due || '', ds: ds.slice(-8) };
   });

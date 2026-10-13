@@ -123,3 +123,6 @@ select, input[type=text], input[type=number], input[type=date] { background: var
 .toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #111827; color: #fff; padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 30; max-width: 90vw; }
 .sheet h3 { font-size: 15px; margin: 14px 0 6px; }
 .sheet h3.section { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 18px; }
+.edit-item.off .emoji, .edit-item.off .body { opacity: .4; }
+.edit-item .vis { min-width: 44px; }
+.edit-item.off .vis { color: var(--muted); }
