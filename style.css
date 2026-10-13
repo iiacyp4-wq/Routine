@@ -88,15 +88,28 @@ select, input[type=text], input[type=number], input[type=date] { background: var
 .edit-item .body { flex: 1; }
 .edit-item .desc { font-size: 12px; color: var(--muted); }
 
-/* 기록 격자 */
-.grid-card h2 { display: flex; justify-content: space-between; }
-.grid-card h2 small { font-weight: 400; color: var(--muted); font-size: 13px; }
-.days-head, .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-.days-head { font-size: 11px; color: var(--muted); text-align: center; margin-bottom: 4px; }
-.day { aspect-ratio: 1; border: 0; border-radius: 8px; background: var(--line); font-size: 11px; color: var(--muted); padding: 0; }
-.day.on { background: var(--accent); color: #fff; font-weight: 700; }
-.day.today { outline: 2px solid var(--text); outline-offset: -2px; }
-.day.future { opacity: .25; }
+/* 기록 달력: 한 달 하나, 칸 높이는 이모지 수에 맞춰 늘어남 (그 주 줄 전체가 같이 늘어남) */
+.month-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.month-bar b { font-size: 17px; }
+.month-bar .icon-btn:disabled { opacity: .25; }
+.icon-btn { background: none; border: 0; font-size: 26px; width: 44px; height: 44px; border-radius: 50%; }
+.chips.filter { flex-wrap: nowrap; overflow-x: auto; margin: 4px 0 6px; padding-bottom: 2px; }
+.chips.filter .chip { flex: none; font-size: 14px; padding: 6px 11px; }
+.cal-head, .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-head { font-size: 11px; color: var(--muted); text-align: center; margin: 8px 0 4px; }
+.cell { min-height: 50px; border: 0; border-radius: 10px; background: var(--bg); padding: 3px 2px 4px; display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+.cell.blank { background: transparent; }
+.cell .n { font-size: 11px; color: var(--muted); }
+.cell .em { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 1px; font-size: 16px; line-height: 1.2; }
+.cell.today { outline: 2px solid var(--text); outline-offset: -2px; }
+.cell.today .n { color: var(--text); font-weight: 700; }
+.cell.future { opacity: .3; }
+.day-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.day-row .emoji { font-size: 24px; width: 32px; text-align: center; }
+.day-row .body { flex: 1; min-width: 0; }
+.day-row .desc { font-size: 12px; color: var(--muted); }
+.day-row .check { width: 40px; height: 40px; padding: 0; background: transparent; border-radius: 50%; border: 2.5px solid var(--line); font-size: 18px; color: #fff; flex: none; }
+.day-row.done .check { background: var(--accent); border-color: var(--accent); }
 .menu-row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .menu-row .d { color: var(--muted); width: 70px; flex: none; }
 

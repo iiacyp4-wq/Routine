@@ -1,6 +1,6 @@
 // Routine - 루틴이 조용히 사라지지 않게 계속 보여 주는 앱
 // 데이터는 이 폰의 localStorage에만 저장
-const APP_VERSION = 'v1.3';
+const APP_VERSION = 'v1.4';
 const STORE = 'routine-state';
 
 const $ = (s) => document.querySelector(s);
@@ -170,6 +170,7 @@ function changed() {
 
 // ---------- 시트 ----------
 function openSheet(html) {
+  $('#sheet').onclick = null;
   $('#sheet').innerHTML = html;
   $('#sheet').hidden = false; $('#sheet-bg').hidden = false;
 }
@@ -289,35 +290,89 @@ function openDetailSheet(r, d) {
 }
 
 // ---------- 기록 화면 ----------
+// 한 달 달력 하나에 그날 한 루틴을 이모지로. 이모지가 많은 주는 그 주 칸만 높아짐
+let histMonth = todayKey().slice(0, 7); // 'YYYY-MM'
+let histFilter = null; // null = 전체, 아니면 루틴 id
+const monthAdd = (ym, n) => { const d = new Date(+ym.slice(0, 4), +ym.slice(5, 7) - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+
 function renderHistory() {
   const today = todayKey();
-  const end = addDays(weekStart(today), 6);
-  const start = addDays(end, -34); // 5주
-  const days = Array.from({ length: 35 }, (_, i) => addDays(start, i));
-  $('#history-grids').innerHTML = state.routines.map((r) => {
-    const cnt30 = datesOf(r).filter((d) => d > addDays(today, -30) && d <= today).length;
-    return `<section class="card grid-card">
-      <h2>${esc(r.emoji)} ${esc(r.name)}${r.hidden ? ' <small>(숨김)</small>' : ''} <small>최근 30일 ${cnt30}번 · ${KIND_DESC(r)}</small></h2>
-      <div class="days-head">${['월', '화', '수', '목', '금', '토', '일'].map((x) => `<span>${x}</span>`).join('')}</div>
-      <div class="days">${days.map((d) => `<button class="day ${entry(r, d) ? 'on' : ''} ${d === today ? 'today' : ''} ${d > today ? 'future' : ''}"
-        data-r="${r.id}" data-d="${d}" ${d > today ? 'disabled' : ''}>${+d.slice(8)}</button>`).join('')}</div>
-    </section>`;
-  }).join('');
+  const rs = shown();
+  if (histFilter && !rs.some((r) => r.id === histFilter)) histFilter = null;
+  const visible = histFilter ? rs.filter((r) => r.id === histFilter) : rs;
 
-  $('#menu-log').innerHTML = state.routines.filter((r) => r.menu).map((r) => {
+  const first = `${histMonth}-01`;
+  const last = addDays(`${monthAdd(histMonth, 1)}-01`, -1);
+  const start = weekStart(first);
+  const end = addDays(weekStart(last), 6);
+  const days = Array.from({ length: diff(start, end) + 1 }, (_, i) => addDays(start, i));
+  const inMonth = (d) => d >= first && d <= last;
+  const counts = rs.map((r) => `${esc(r.emoji)} ${datesOf(r).filter(inMonth).length}번`).join(' · ');
+
+  $('#history-grids').innerHTML = `<section class="card">
+    <div class="month-bar">
+      <button class="icon-btn" data-month="-1" aria-label="지난달">‹</button>
+      <b>${+histMonth.slice(0, 4)}년 ${+histMonth.slice(5)}월</b>
+      <button class="icon-btn" data-month="1" aria-label="다음 달" ${histMonth >= today.slice(0, 7) ? 'disabled' : ''}>›</button>
+    </div>
+    <div class="chips filter">
+      <button class="chip ${histFilter ? '' : 'on'}" data-filter="">전체</button>
+      ${rs.map((r) => `<button class="chip ${histFilter === r.id ? 'on' : ''}" data-filter="${r.id}">${esc(r.emoji)} ${esc(r.name)}</button>`).join('')}
+    </div>
+    <p class="muted small">이번 달: ${counts || '루틴이 없어요'}</p>
+    <div class="cal-head">${['월', '화', '수', '목', '금', '토', '일'].map((x) => `<span>${x}</span>`).join('')}</div>
+    <div class="cal">${days.map((d) => {
+      if (!inMonth(d)) return '<span class="cell blank"></span>';
+      const ems = visible.filter((r) => entry(r, d)).map((r) => `<span>${esc(r.emoji)}</span>`).join('');
+      return `<button class="cell ${d === today ? 'today' : ''} ${d > today ? 'future' : ''}" data-day="${d}" ${d > today ? 'disabled' : ''}>
+        <span class="n">${+d.slice(8)}</span><span class="em">${ems}</span></button>`;
+    }).join('')}</div>
+    <p class="muted small">날짜를 누르면 그날 기록을 넣거나 지울 수 있어요. (깜빡한 날 채우기)</p>
+  </section>`;
+
+  $('#menu-log').innerHTML = rs.filter((r) => r.menu).map((r) => {
     const ds = datesOf(r).filter((d) => d <= today).slice(-14).reverse();
     return `<section class="card"><h2>${esc(r.emoji)} ${esc(r.name)} 메뉴 (최근 14번)</h2>
-      ${ds.map((d) => `<div class="menu-row"><span class="d">${md(d)} (${DOW[parse(d).getDay()]})</span><span>${esc((entry(r, d).items || []).join(' · ') || '기록만')}</span></div>`).join('') || '<p class="muted small">아직 없어요.</p>'}
+      ${ds.map((d) => `<div class="menu-row"><span class="d">${md(d)} (${DOW[parse(d).getDay()]})</span><span>${esc((entry(r, d).items || []).join(' · ') || '체크만')}</span></div>`).join('') || '<p class="muted small">아직 없어요.</p>'}
     </section>`;
   }).join('');
 }
 $('#history-grids').onclick = (ev) => {
-  const b = ev.target.closest('[data-d]');
-  if (!b) return;
-  const r = state.routines.find((x) => x.id === b.dataset.r);
-  // 기록 화면도 누르면 바로 체크/해제 (지난 날 채우기용)
-  toggle(r, b.dataset.d);
+  const m = ev.target.closest('[data-month]');
+  if (m) { histMonth = monthAdd(histMonth, +m.dataset.month); return renderHistory(); }
+  const f = ev.target.closest('[data-filter]');
+  if (f) { histFilter = f.dataset.filter || null; return renderHistory(); }
+  const c = ev.target.closest('[data-day]');
+  if (c) openDaySheet(c.dataset.day);
 };
+
+// 그날 루틴 목록: 동그라미로 바로 체크/해제, 이름을 누르면 그날 기준 자세히 보기
+function openDaySheet(d) {
+  const draw = () => {
+    openSheet(`
+      <h2>${md(d)} (${DOW[parse(d).getDay()]})</h2>
+      ${shown().map((r) => {
+        const e = entry(r, d);
+        const sub = r.menu && e && (e.items || []).length ? e.items.join(' · ') : '';
+        return `<div class="day-row ${e ? 'done' : ''}" data-rid="${r.id}">
+          <span class="emoji">${esc(r.emoji)}</span>
+          <span class="body"><b>${esc(r.name)}</b>${sub ? `<div class="desc">${esc(sub)}</div>` : ''}</span>
+          <button class="check" data-check aria-label="${e ? '체크 해제' : '체크'}">${e ? '✓' : ''}</button>
+        </div>`;
+      }).join('')}
+      <button class="btn wide" id="day-close">닫기</button>
+    `);
+    $('#day-close').onclick = closeSheet;
+    $('#sheet').onclick = (ev) => {
+      const row = ev.target.closest('.day-row');
+      if (!row) return;
+      const r = state.routines.find((x) => x.id === row.dataset.rid);
+      if (ev.target.closest('[data-check]')) { toggle(r, d); draw(); }
+      else openDetailSheet(r, d);
+    };
+  };
+  draw();
+}
 
 // ---------- 설정 ----------
 function renderSettings() {
